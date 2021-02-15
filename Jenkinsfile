@@ -1,110 +1,100 @@
-pipeline
-{
-    agent
-    {
-        label 'Linux_redhat'
+pipeline{
+
+  agent any
+
+
+    environment {
+      Name = "Devops"
+      }
+
+      parameters {
+    string defaultValue: 'DevOPS', description: '', name: 'Student', trim: false
+  }
+
+    tools {
+        jdk 'jdk8'
+        maven 'mvn3.6.3'
     }
-    environment
-    {
-        Name = "Gopi"
-    }
-  //  triggers
-  //  {
-  //      cron('*/1 * * * *')
-  //  }
- parameters 
- {
-    choice choices: ['Dev', 'QA', 'Non-prod', 'prod'], description: 'Please select your environment', name: 'Environment'
-    }   
-    
-    options
-    {
-        buildDiscarder (logRotator(numToKeepStr:'5'))
-        retry(3)    
-    }
+
     stages
     {
-        stage ("stage 1")
+      stage('checkout')
+      {
+        steps
         {
-            agent
-            {
-                label 'Linux'
-            }
-            environment
-            {
-                Name = "Raja"
-            }
-            steps
-            {
-                sh '''
-                    echo "Hello $Name from satge 1"
-                   ''' 
-
-            }
+         git branch: 'master', credentialsId: 'GitCredentials', url: 'https://github.com/RajaKoppuravuri/stormpath-spring-boot-jpa-example.git'
         }
+      }
 
-        stage ("stage 2")
-        {
-           input
-           {
-               message "Enter your name"
-               
-               parameters
-               {
-                   string(name: 'PERSON', defaultValue: '', description: 'Enter your name')
-               }
-           }
-
-           when
-           {
-               beforeInput false
-               environment name: 'PERSON', value: 'Divya'
-               
-           }
-            steps
-                {
-                    sh '''
-                        echo "Hello $Name from stage 2"
-                        echo "Hello $PERSON"
-                       '''
-                }
-
-        }
-        stage ("stage checkout")
-        {
-            parallel
-            {
-                stage ("stage_1 in stages")
-                {
-                    steps
-                    {
-                        sh '''
-                            echo "stage_1 in stages"
-                          '''
-                        dir('parents') 
-                        {
-                            git branch:'feature', url:'git@192.168.3.41:/home/git/gitrepo/stormpath-spring-boot-jpa-example.git', credentialsId:'git'
-                        }
-                    }
-                }
-            
-                stage ("stage_2 in stages")
-                {
-
-                    steps
-                    {
-                        sh '''
-                            echo "stage_2 in stages"
-                          '''                        
-                        
-                        dir('students') 
-                        {
-                            git branch:'feature', url:'git@192.168.3.41:/home/git/gitrepo/stormpath-spring-boot-jpa-example.git', credentialsId:'git'
-                        }
-                    }
-                }
-            
-            }
-        }
+     stage('Code compile') {
+       steps
+       {
+          sh 'mvn clean package'
+       }
     }
+    stage('Pritnt environment variables') {
+      steps
+      {
+         sh 'printenv'
+      }
+   }
+    stage('Archive artifacts'){
+     steps
+     {
+      archiveArtifacts artifacts: 'target/*.jar', followSymlinks: false
+     }
+
+    }
+    stage('Execute shell script'){
+    agent {
+  label 'amazon_linux'
+  }
+
+    when {
+      environment name: 'Student', value: 'DevOPS'
+    }
+    steps
+    {
+     sh '''
+          echo "This is a demo pipeline job."
+          echo "This is working as $Name."
+          echo "This is executed by  the $Student student"
+
+        '''
+    }
+    }
+
+    stage('parallel execution') {
+
+      parallel {
+        stage('stage_1_execution') {
+          steps {
+          sh '''
+               echo "This is a demo pipeline job."
+               echo "This is working as expected."
+               echo "This is from stage_1_execution"
+
+             '''
+            }
+          }
+          stage('stage_2_execution') {
+            steps {
+            sh '''
+                 echo "This is a demo pipeline job."
+                 echo "This is working as expected."
+                 echo "This is from stage_2_execution"
+
+               '''
+              }
+              }
+      }
+    }
+
+   }
+   post {
+     always {
+       cleanWs()
+     }
+   }
+
 }
